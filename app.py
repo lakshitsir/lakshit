@@ -103,8 +103,8 @@ def parse_response(content):
     lines = content.split("\n")
     for line in lines:
         if ":" in line:
-            key, value = line.split(":", 1)
-            response_dict[key.strip()] = value.strip().strip('"')
+            k, v = line.split(":", 1)
+            response_dict[k.strip()] = v.strip().strip('"')
     return response_dict
 
 def get_jwt_token(region):
@@ -118,101 +118,39 @@ def get_jwt_token(region):
     game_data.game_name = "free fire"
     game_data.game_version = 1
     game_data.version_code = "1.108.3"
-    game_data.os_info = "Android OS 9 / API-28 (PI/rel.cjw.20220518.114133)"
+    game_data.os_info = "Android OS 9 / API-28"
     game_data.device_type = "Handheld"
     game_data.network_provider = "Verizon Wireless"
     game_data.connection_type = "WIFI"
     game_data.screen_width = 1280
     game_data.screen_height = 960
     game_data.dpi = "240"
-    game_data.cpu_info = "ARMv7 VFPv3 NEON VMH | 2400 | 4"
+    game_data.cpu_info = "ARMv7"
     game_data.total_ram = 5951
-    game_data.gpu_name = "Adreno (TM) 640"
-    game_data.gpu_version = "OpenGL ES 3.0"
-    game_data.user_id = "Google|74b585a9-0268-4ad3-8f36-ef41d2e53610"
-    game_data.ip_address = "172.190.111.97"
+    game_data.gpu_name = "Adreno 640"
     game_data.language = "en"
     game_data.open_id = token_data['open_id']
     game_data.access_token = token_data['access_token']
     game_data.platform_type = 4
-    game_data.device_form_factor = "Handheld"
-    game_data.device_model = "Asus ASUS_I005DA"
-    game_data.field_60 = 32968
-    game_data.field_61 = 29815
-    game_data.field_62 = 2479
-    game_data.field_63 = 914
-    game_data.field_64 = 31213
-    game_data.field_65 = 32968
-    game_data.field_66 = 31213
-    game_data.field_67 = 32968
-    game_data.field_70 = 4
-    game_data.field_73 = 2
-    game_data.library_path = "/data/app/com.dts.freefireth-QPvBnTUhYWE-7DMZSOGdmA==/lib/arm"
-    game_data.field_76 = 1
-    game_data.apk_info = "5b892aaabd688e571f688053118a162b|/data/app/com.dts.freefireth-QPvBnTUhYWE-7DMZSOGdmA==/base.apk"
-    game_data.field_78 = 6
-    game_data.field_79 = 1
-    game_data.os_architecture = "32"
-    game_data.build_number = "2019117877"
-    game_data.field_85 = 1
-    game_data.graphics_backend = "OpenGLES2"
-    game_data.max_texture_units = 16383
-    game_data.rendering_api = 4
-    game_data.encoded_field_89 = "\u0017T\u0011\u0017\u0002\b\u000eUMQ\bEZ\u0003@ZK;Z\u0002\u000eV\ri[QVi\u0003\ro\t\u0007e"
-    game_data.field_92 = 9204
-    game_data.marketplace = "3rd_party"
-    game_data.encryption_key = "KqsHT2B4It60T/65PGR5PXwFxQkVjGNi+IMCK3CFBCBfrNpSUA1dZnjaT3HcYchlIFFL1ZJOg0cnulKCPGD3C3h1eFQ="
-    game_data.total_storage = 111107
-    game_data.field_97 = 1
-    game_data.field_98 = 1
-    game_data.field_99 = "4"
-    game_data.field_100 = "4"
 
     try:
-        serialized_data = game_data.SerializeToString()
-        encrypted_data = encrypt_message(AES_KEY, AES_IV, serialized_data)
-        edata = binascii.hexlify(encrypted_data).decode()
-
+        encrypted = encrypt_message(AES_KEY, AES_IV, game_data.SerializeToString())
         url = "https://loginbp.common.ggbluefox.com/MajorLogin"
         headers = {
-            'User-Agent': "Dalvik/2.1.0 (Linux; U; Android 9; ASUS_Z01QD Build/PI)",
-            'Connection': "Keep-Alive",
-            'Accept-Encoding': "gzip",
-            'Content-Type': "application/octet-stream",
-            'Expect': "100-continue",
-            'X-Unity-Version': "2018.4.11f1",
-            'X-GA': "v1 1",
-            'ReleaseVersion': "OB51"
+            "User-Agent": "Dalvik/2.1.0",
+            "Content-Type": "application/octet-stream"
         }
-
-        response = requests.post(url, data=bytes.fromhex(edata), headers=headers, verify=False)
-
-        if response.status_code == 200:
-            example_msg = output_pb2.Garena_420()
-            try:
-                example_msg.ParseFromString(response.content)
-                response_dict = parse_response(str(example_msg))
-                
-                # Also parse with MajorLoginRes_pb2
-                major_login_res = MajorLoginRes_pb2.MajorLoginRes()
-                try:
-                    major_login_res.ParseFromString(response.content)
-                    # Add additional response data
-                    response_dict['account_id'] = major_login_res.account_id
-                    response_dict['server_url'] = major_login_res.server_url
-                    response_dict['ttl'] = major_login_res.ttl
-                except:
-                    pass
-                
-                return {
-                    "token": response_dict.get("token", token_data.get("access_token", "")),
-                    "serverUrl": response_dict.get("server_url", "")
-                }
-            except Exception as e:
-                return None
-        else:
+        r = requests.post(url, data=encrypted, headers=headers, verify=False)
+        if r.status_code != 200:
             return None
-    except Exception as e:
+
+        major = MajorLoginRes_pb2.MajorLoginRes()
+        major.ParseFromString(r.content)
+        return {
+            "token": token_data["access_token"],
+            "serverUrl": major.server_url
+        }
+    except Exception:
         return None
 
 @app.route('/player-info', methods=['GET'])
@@ -221,200 +159,41 @@ def main():
     region = request.args.get('region')
 
     if not uid or not region:
-        return jsonify({"error": "Missing 'uid' or 'region' query parameter"}), 400
+        return jsonify({"error": "Missing uid or region"}), 400
 
     try:
         saturn_ = int(uid)
-    except ValueError:
+    except:
         return jsonify({"error": "Invalid UID"}), 400
 
     jwt_info = get_jwt_token(region)
-    if not jwt_info or 'token' not in jwt_info or not jwt_info['serverUrl']:
-        return jsonify({"error": "Failed to fetch JWT token"}), 500
-
-    api = jwt_info['serverUrl']
-    token = jwt_info['token']
+    if not jwt_info:
+        return jsonify({"error": "JWT failed"}), 500
 
     protobuf_data = create_protobuf(saturn_, 1)
     hex_data = protobuf_to_hex(protobuf_data)
     encrypted_hex = encrypt_aes(hex_data, key, iv)
 
-    headers = {
-        'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 9; ASUS_Z01QD Build/PI)',
-        'Connection': 'Keep-Alive',
-        'Expect': '100-continue',
-        'Authorization': f'Bearer {token}',
-        'X-Unity-Version': '2018.4.11f1',
-        'X-GA': 'v1 1',
-        'ReleaseVersion': 'OB51',
-        'Content-Type': 'application/octet-stream',
-    }
-
     try:
-        response = requests.post(f"{api}/GetPlayerPersonalShow", headers=headers, data=bytes.fromhex(encrypted_hex), verify=False)
-        response.raise_for_status()
-    except requests.RequestException:
-        return jsonify({"error": "Failed to contact game server"}), 502
+        r = requests.post(
+            f"{jwt_info['serverUrl']}/GetPlayerPersonalShow",
+            headers={"Authorization": f"Bearer {jwt_info['token']}"},
+            data=bytes.fromhex(encrypted_hex),
+            verify=False
+        )
+        r.raise_for_status()
+    except:
+        return jsonify({"error": "Game server error"}), 502
 
-    hex_response = response.content.hex()
-
-    try:
-        account_info = decode_hex(hex_response)
-    except Exception as e:
-        return jsonify({"error": f"Failed to parse Protobuf: {str(e)}"}), 500
-
-    # Extract username dynamically
-    username = "Unknown"
-
-    if account_info.HasField("basic_info"):
-        username = account_info.basic_info.nickname  # Fetch username from basic_info.nickname
+    account_info = decode_hex(r.content.hex())
 
     result = {}
-
-    # Basic Info
     if account_info.HasField("basic_info"):
-        basic_info = account_info.basic_info
         result["basicInfo"] = {
-            "accountId": str(basic_info.account_id),
-            "accountType": basic_info.account_type,
-            "nickname": basic_info.nickname,
-            "region": basic_info.region,
-            "level": basic_info.level,
-            "exp": basic_info.exp,
-            "bannerId": basic_info.banner_id,
-            "headPic": basic_info.head_pic,
-            "rank": basic_info.rank,
-            "rankingPoints": basic_info.ranking_points,
-            "role": basic_info.role,
-            "hasElitePass": basic_info.has_elite_pass,
-            "badgeCnt": basic_info.badge_cnt,
-            "badgeId": basic_info.badge_id,
-            "seasonId": basic_info.season_id,
-            "liked": basic_info.liked,
-            "lastLoginAt": str(basic_info.last_login_at),
-            "csRank": basic_info.cs_rank,
-            "csRankingPoints": basic_info.cs_ranking_points,
-            "weaponSkinShows": list(basic_info.weapon_skin_shows),
-            "maxRank": basic_info.max_rank,
-            "csMaxRank": basic_info.cs_max_rank,
-            "accountPrefers": {},
-            "createAt": str(basic_info.create_at),
-            "title": basic_info.title,
-            "externalIconInfo": {
-                "status": "ExternalIconStatus_NOT_IN_USE",
-                "showType": "ExternalIconShowType_FRIEND"
-            },
-            "releaseVersion": basic_info.release_version,
-            "showBrRank": basic_info.show_br_rank,
-            "showCsRank": basic_info.show_cs_rank,
-            "socialHighLightsWithBasicInfo": {}
+            "accountId": str(account_info.basic_info.account_id),
+            "nickname": account_info.basic_info.nickname,
+            "level": account_info.basic_info.level
         }
 
-    # Profile Info
-    if account_info.HasField("profile_info"):
-        profile_info = account_info.profile_info
-        result["profileInfo"] = {
-            "avatarId": profile_info.avatar_id,
-            "skinColor": profile_info.skin_color,
-            "clothes": list(profile_info.clothes),
-            "equipedSkills": list(profile_info.equiped_skills),
-            "isSelected": profile_info.is_selected,
-            "isSelectedAwaken": profile_info.is_selected_awaken
-        }
-
-    # Clan Basic Info
-    if account_info.HasField("clan_basic_info"):
-        clan_info = account_info.clan_basic_info
-        result["clanBasicInfo"] = {
-            "clanId": str(clan_info.clan_id),
-            "clanName": clan_info.clan_name,
-            "captainId": str(clan_info.captain_id),
-            "clanLevel": clan_info.clan_level,
-            "capacity": clan_info.capacity,
-            "memberNum": clan_info.member_num
-        }
-
-    # Captain Basic Info
-    if account_info.HasField("captain_basic_info"):
-        captain_info = account_info.captain_basic_info
-        result["captainBasicInfo"] = {
-            "accountId": str(captain_info.account_id),
-            "accountType": captain_info.account_type,
-            "nickname": captain_info.nickname,
-            "region": captain_info.region,
-            "level": captain_info.level,
-            "exp": captain_info.exp,
-            "bannerId": captain_info.banner_id,
-            "headPic": captain_info.head_pic,
-            "rank": captain_info.rank,
-            "rankingPoints": captain_info.ranking_points,
-            "role": captain_info.role,
-            "hasElitePass": captain_info.has_elite_pass,
-            "badgeCnt": captain_info.badge_cnt,
-            "badgeId": captain_info.badge_id,
-            "seasonId": captain_info.season_id,
-            "liked": captain_info.liked,
-            "lastLoginAt": str(captain_info.last_login_at),
-            "csRank": captain_info.cs_rank,
-            "csRankingPoints": captain_info.cs_ranking_points,
-            "weaponSkinShows": list(captain_info.weapon_skin_shows),
-            "maxRank": captain_info.max_rank,
-            "csMaxRank": captain_info.cs_max_rank,
-            "accountPrefers": {},
-            "createAt": str(captain_info.create_at),
-            "title": captain_info.title,
-            "externalIconInfo": {
-                "status": "ExternalIconStatus_NOT_IN_USE",
-                "showType": "ExternalIconShowType_FRIEND"
-            },
-            "releaseVersion": captain_info.release_version,
-            "showBrRank": captain_info.show_br_rank,
-            "showCsRank": captain_info.show_cs_rank,
-            "socialHighLightsWithBasicInfo": {}
-        }
-
-    # Pet Info
-    if account_info.HasField("pet_info"):
-        pet_info = account_info.pet_info
-        result["petInfo"] = {
-            "id": pet_info.id,
-            "name": pet_info.name,
-            "level": pet_info.level,
-            "exp": pet_info.exp,
-            "isSelected": pet_info.is_selected,
-            "skinId": pet_info.skin_id,
-            "selectedSkillId": pet_info.selected_skill_id
-        }
-
-    # Social Info
-    if account_info.HasField("social_info"):
-        social_info = account_info.social_info
-        result["socialInfo"] = {
-            "accountId": str(social_info.account_id),
-            "language": "Language_EN",  # Map from social_info.language
-            "modePrefer": "ModePrefer_BR",  # Map from social_info.mode_prefer
-            "signature": social_info.signature,
-            "rankShow": "RankShow_CS"  # Map from social_info.rank_show
-        }
-
-    # Diamond Cost Res
-    if account_info.HasField("diamond_cost_res"):
-        diamond_cost = account_info.diamond_cost_res
-        result["diamondCostRes"] = {
-            "diamondCost": diamond_cost.diamond_cost
-        }
-
-    # Credit Score Info
-    if account_info.HasField("credit_score_info"):
-        credit_info = account_info.credit_score_info
-        result["creditScoreInfo"] = {
-            "creditScore": credit_info.credit_score,
-            "rewardState": "REWARD_STATE_UNCLAIMED",  # Map from credit_info.reward_state
-            "periodicSummaryEndTime": str(credit_info.periodic_summary_end_time)
-        }
-
-    result['credit'] = '@Ujjaiwal'
+    result["credit"] = "@lakshitpatidar"
     return jsonify(result)
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)#
